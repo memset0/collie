@@ -43,6 +43,11 @@ const NEUTRAL = new Set([
   "claude--draft-footer-empty.txt",
   "claude--draft-footer-single.txt",
   "claude--draft-footer-wrapped.txt",
+  // The same box under Claude Code 2.1.286, whose mode line ends `· ← 2 agents · ↓ to manage` while
+  // background agents run (clipped to `↓ to ma…` in a narrow pane). The `↓` there names a key, and
+  // it is still composer chrome, not a dialog.
+  "claude--v2286-agents-manage-hint--w120.txt",
+  "claude--v2286-agents-manage-hint-clipped--w73.txt",
   // The /model picker DISMISSED: the input box is back, so this is an ordinary idle screen. It is the
   // negative control for the generic menu grammar — its statusline is `·`-separated like a key-hint
   // footer, and the input-box gate is the only thing that keeps it raw.

@@ -272,6 +272,38 @@ describe("the card appears on only these screens", () => {
   });
 });
 
+describe("Claude Code 2.1.286's background-work hint is the mode line, not a modal", () => {
+  // From 2.1.286 the mode line under the box ends `· ← N agents · ↓ to manage` while background agents
+  // run, and a narrow pane clips it to `↓ to ma…`. `↓` is a key the menu grammar sends, so before the
+  // mode line was read as such, both probes the card stands on took the hint for a modal's footer:
+  // the box was refused, and the card was drawn over a working pane.
+  const claude = adapterFor("claude")!;
+
+  it.each([
+    "claude--v2286-agents-manage-hint--w120.txt",
+    "claude--v2286-agents-manage-hint-clipped--w73.txt",
+    // The 2.1.285 mode line, `· ← 1 agent` with no hint: unchanged.
+    "claude--draft-footer-single.txt",
+  ])("%s: the composer is ready, no modal is reported, no card is drawn", (name) => {
+    const lines = fixtureLines(name);
+    expect(claude.composerReady!(lines)).toBe(true);
+    expect(claude.modalOnScreen!(lines)).toBe(false);
+    expect(pass("claude", lines).map((b) => b.kind)).toEqual(["raw"]);
+  });
+
+  it("a real panel whose footer is only `↓ to manage` is still a modal, and gets the card", () => {
+    // The `/tasks` panel with its footer narrowed to the one hint, so nothing else on screen names a
+    // key: the case a wider exemption, one that ignored where the hint sits, would lose.
+    const text = readFileSync(join(PANES_DIR, "claude-lab--tasks-panel--w82.txt"), "utf8");
+    const footer = "↑/↓ to select · Enter to view · Esc to close";
+    expect(text).toContain(footer);
+    const lines = linesOf(text.replace(footer, "↓ to manage"));
+    expect(claude.composerReady!(lines)).toBe(false);
+    expect(claude.modalOnScreen!(lines)).toBe(true);
+    expect(cardOf(pass("claude", lines))).not.toBeNull();
+  });
+});
+
 describe("the declaration tracks the harness", () => {
   // A drift tripwire, not a parse: the card reads NO footer, but the key it declares was read off
   // one. If a harness changes its cancel binding, the string below stops appearing on that dialog

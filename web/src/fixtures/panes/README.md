@@ -659,6 +659,22 @@ it, and Claude answered `✔ Updated 1 marketplace`.
 | `claude--v2283-fullscreen-plugin-marketplaces-changed--w{40,82}.txt` | Esc from that page, full screen: back on the tab, whose `▔` edge now carries `Plugins changed. Run /reload-plugins to activate.` At 40 columns the label crowds out the edge's left run (` Plugins changed. Run /reload-plugins… ▔`), which `region-top.ts`'s edge shape does not take, so the marketplaces grammar accepts that crowded edge itself. Same reading as the tab |
 | `claude--v2283-plugin-marketplaces-add-form--w82.txt` | Enter on `+ Add Marketplace`: a boxed text field, `Enter to add · Esc to cancel`. Not claimed by the marketplaces grammar; the unread card offers Escape |
 
+## Background-work hint (reconstructed 2026-10-01, Claude Code 2.1.286)
+
+**Not a capture.** These two files are RECONSTRUCTED in the shape of
+`claude--draft-footer-empty.txt`, with the one row Claude Code 2.1.286 changed: while background
+agents run, the permission-mode line under the box gains a trailing hint, `· ← 2 agents · ↓ to
+manage`, and a narrow pane clips it to `↓ to ma…`. Every row is authored, nothing came off a real
+session, and the box rules span the recorded width (`--w<cols>`). `↓` is a key the menu grammar
+sends, so before `withoutAgentsManageHint` (`harness/claude/markers.ts`) the hint read as a modal's
+footer: the box was refused and the unread-dialog card covered a working pane. Replace them with
+captures when the lab next runs against 2.1.286 or later.
+
+| Fixture | Cols | State / what's in it |
+|---|---|---|
+| `claude--v2286-agents-manage-hint--w120.txt` | 120 | Empty `❯` box, a two-row run (a user statusline, then the mode line ending `· ← 2 agents · ↓ to manage`), the background-agents footer with two agents. Composer ready, no modal, no card |
+| `claude--v2286-agents-manage-hint-clipped--w73.txt` | 73 | The same screen at 73 columns with no user statusline: the mode line is clipped to `· ← 2 agents · ↓ to ma…`. Same reading |
+
 ## Wizard corpus (captured 2026-07-05, sandbox pane; choreography in `../../lib/grammar/WIZARD_NOTES.md`)
 
 | Fixture | State / what's in it |

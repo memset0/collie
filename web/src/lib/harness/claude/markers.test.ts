@@ -13,7 +13,9 @@ import {
   isMultiStepHeader,
   lineText,
   namesTrustDialog,
+  withoutAgentsManageHint,
 } from "./markers";
+import { namesAMenuKey } from "../menu-hints";
 
 // The shared lexing primitives every Claude-Code grammar leans on (chrome, prompt-select, and — in
 // T3 — history segmentation). Small and pure; these pin the exact edge cases the matchers rely on.
@@ -281,5 +283,55 @@ describe("isMultiStepHeader", () => {
     expect(isMultiStepHeader(" ☐ Color Theme ")).toBe(false); // single-question dialog's lone chip
     expect(isMultiStepHeader("How should I approach the work?")).toBe(false);
     expect(isMultiStepHeader("1. Plan first")).toBe(false);
+  });
+});
+
+describe("withoutAgentsManageHint", () => {
+  // Claude Code 2.1.286's mode line while background agents run. Only the trailing hint goes; the
+  // row is otherwise handed back exactly, so every other segment keeps its reading as a key.
+  const MODE = "  ⏵⏵ bypass permissions on (shift+tab to cycle)";
+
+  it("drops the hint after the mode text and the agent count", () => {
+    expect(withoutAgentsManageHint(`${MODE} · ← 2 agents · ↓ to manage`)).toBe(`${MODE} · ← 2 agents`);
+    expect(withoutAgentsManageHint(`${MODE} · ← 1 agent · ↓ to manage`)).toBe(`${MODE} · ← 1 agent`);
+    expect(namesAMenuKey(withoutAgentsManageHint(`${MODE} · ← 2 agents · ↓ to manage`))).toBe(false);
+  });
+
+  it.each(["↓ to ma…", "↓ to manag…", "↓ to…", "↓ to …", "↓ to manage…"])("drops the clipped hint %s", (clip) => {
+    expect(withoutAgentsManageHint(`${MODE} · ← 2 agents · ${clip}`)).toBe(`${MODE} · ← 2 agents`);
+  });
+
+  it.each([
+    "⏵⏵ accept edits on (shift+tab to cycle)",
+    "⏵⏵ auto mode on (shift+tab to cycle)",
+    "⏸ plan mode on (shift+tab to cycle)",
+    "⏸ manual mode on",
+  ])("follows the mode text %s", (mode) => {
+    expect(withoutAgentsManageHint(`  ${mode} · ← 3 agents · ↓ to manage`)).toBe(`  ${mode} · ← 3 agents`);
+  });
+
+  it("keeps a notice Claude right-aligned on the same row after the hint", () => {
+    const notice = "                    Ctrl+Y to paste deleted text";
+    expect(withoutAgentsManageHint(`${MODE} · ← 2 agents · ↓ to manage${notice}`)).toBe(`${MODE} · ← 2 agents${notice}`);
+  });
+
+  it.each([
+    ["no mode text before it", "  ← 2 agents · ↓ to manage"],
+    ["the hint alone", "  ↓ to manage"],
+    ["a dialog footer", "   ↑/↓ to select · Enter to view · ↓ to manage"],
+    ["another verb", `${MODE} · ← 2 agents · ↓ to view`],
+    ["a clip shorter than the key and its verb", `${MODE} · ← 2 agents · ↓ t…`],
+    ["no agent count before it", `${MODE} · ↓ to manage`],
+    ["a count that is not a number", `${MODE} · ← for agents · ↓ to manage`],
+    ["the hint not last", `${MODE} · ← 2 agents · ↓ to manage · Esc to cancel`],
+    ["the 2.1.285 mode line", `${MODE} · ← 1 agent`],
+  ])("hands the row back unchanged with %s", (_case, row) => {
+    expect(withoutAgentsManageHint(row)).toBe(row);
+  });
+
+  it("leaves a key hint elsewhere on the mode line as a key", () => {
+    const row = `${MODE} · Esc to cancel · ← 2 agents · ↓ to manage`;
+    expect(withoutAgentsManageHint(row)).toBe(`${MODE} · Esc to cancel · ← 2 agents`);
+    expect(namesAMenuKey(withoutAgentsManageHint(row))).toBe(true);
   });
 });

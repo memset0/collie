@@ -943,6 +943,11 @@ describe("real corpus — pinned so any change to the walk shows up as a diff", 
     { fixture: "v2283-plugin-marketplaces-updated--w120", statusRows: 1, draft: null, stripped: 5 },
     { fixture: "v2283-plugin-marketplaces-updated--w40", statusRows: 1, draft: null, stripped: 5 },
     { fixture: "v2283-plugin-marketplaces-updated--w82", statusRows: 1, draft: null, stripped: 5 },
+    // Claude Code 2.1.286's mode line with the background-work hint, `· ← 2 agents · ↓ to manage`, and
+    // clipped to `↓ to ma…` at 73 columns (no user statusline there). The box, the run and the agents
+    // footer strip exactly as they do under the `← 1 agent` mode line of `draft-footer-empty`.
+    { fixture: "v2286-agents-manage-hint--w120", statusRows: 2, draft: null, stripped: 10 },
+    { fixture: "v2286-agents-manage-hint-clipped--w73", statusRows: 1, draft: null, stripped: 9 },
     { fixture: "wizard-multiselect-checked", statusRows: 0, draft: null, stripped: 0 },
     { fixture: "wizard-multiselect-final", statusRows: 0, draft: null, stripped: 0 },
     { fixture: "wizard-multiselect-pointer-next", statusRows: 0, draft: null, stripped: 0 },

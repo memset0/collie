@@ -28,6 +28,7 @@ import {
   hasInputBox,
   inputBoxTail,
 } from "./chrome";
+import { withoutAgentsManageHint } from "./markers";
 import { isPastePlaceholderOnly, pasteCarriesSend } from "./paste";
 
 /**
@@ -180,14 +181,17 @@ const POINTED_OPTION_ROW = /^\s*❯\s*\d+\.\s+\S/;
 const PRESS_KEY_PROMPT = /\bpress\s+(?:enter|esc|escape|any key)\b/i;
 
 /** Whether the screen's last non-blank rows show a Claude modal: a row naming a key the way a modal's
- *  footer does, a pointed numbered option, or a "Press Enter" prompt. */
+ *  footer does, a pointed numbered option, or a "Press Enter" prompt. The mode line's `↓ to manage`
+ *  background-work hint names no modal's key (markers.ts `withoutAgentsManageHint`). */
 function tailNamesAKey(lines: StyledLine[]): boolean {
   const rows: string[] = [];
   for (let i = lines.length - 1; i >= 0 && rows.length < MODAL_HINT_ROWS; i--) {
     const text = lineText(lines[i]!);
     if (text.trim() !== "") rows.push(text);
   }
-  return rows.some((t) => namesAMenuKey(t) || POINTED_OPTION_ROW.test(t) || PRESS_KEY_PROMPT.test(t));
+  return rows.some(
+    (t) => namesAMenuKey(withoutAgentsManageHint(t)) || POINTED_OPTION_ROW.test(t) || PRESS_KEY_PROMPT.test(t),
+  );
 }
 
 export const claudeAdapter: HarnessAdapter = {
