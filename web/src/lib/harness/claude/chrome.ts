@@ -21,7 +21,7 @@ import {
   isInputBoxTopBorder,
   isMultiStepHeader,
   lineText,
-  withoutAgentsManageHint,
+  withoutModeLineHints,
 } from "./markers";
 import { detectMultiSelectRegion } from "./multi-select";
 import { detectPreviewSelectRegion } from "./preview-select";
@@ -488,10 +488,10 @@ function steppedMarksAreStatusline(
 /** Whether a tail row names a menu: a numbered option or a "<key> to <verb>" hint. Checked over a
  *  `statusline` tail as well as an `unknown` one: a dialog under a stale box can fit the statusline
  *  walk (its footer split off by a blank, like the background-agents footer), and only these rows
- *  tell it apart. A popup tail is exempt, because its grammar named every row. The mode line's
- *  `↓ to manage` background-work hint is not a modal's key (withoutAgentsManageHint). */
+ *  tell it apart. A popup tail is exempt, because its grammar named every row. The mode line's own
+ *  hints, `esc to interrupt` and `↓ to manage`, are not a modal's keys (withoutModeLineHints). */
 function tailNamesAMenu(text: string): boolean {
-  return NUMBERED_OPTION_ROW.test(text) || namesAMenuKey(withoutAgentsManageHint(text));
+  return NUMBERED_OPTION_ROW.test(text) || namesAMenuKey(withoutModeLineHints(text));
 }
 
 /**

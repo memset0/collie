@@ -48,6 +48,10 @@ const NEUTRAL = new Set([
   // it is still composer chrome, not a dialog.
   "claude--v2286-agents-manage-hint--w120.txt",
   "claude--v2286-agents-manage-hint-clipped--w73.txt",
+  // And once a message is sent with the agents still running: `· esc to interrupt · ← for agents ·
+  // ↓ to manage`, clipped inside `esc to interrupt` at 62 columns. Two keys named, still chrome.
+  "claude--v2286-agents-interrupt-manage-hint--w120.txt",
+  "claude--v2286-agents-interrupt-manage-hint-clipped--w62.txt",
   // The /model picker DISMISSED: the input box is back, so this is an ordinary idle screen. It is the
   // negative control for the generic menu grammar — its statusline is `·`-separated like a key-hint
   // footer, and the input-box gate is the only thing that keeps it raw.

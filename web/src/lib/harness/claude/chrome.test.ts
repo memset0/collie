@@ -948,6 +948,10 @@ describe("real corpus — pinned so any change to the walk shows up as a diff", 
     // footer strip exactly as they do under the `← 1 agent` mode line of `draft-footer-empty`.
     { fixture: "v2286-agents-manage-hint--w120", statusRows: 2, draft: null, stripped: 10 },
     { fixture: "v2286-agents-manage-hint-clipped--w73", statusRows: 1, draft: null, stripped: 9 },
+    // The same mode line once a message is sent with the agents still running: `· esc to interrupt ·
+    // ← for agents · ↓ to manage`, clipped to `esc to inte…` at 62 columns. One status row, stripped alike.
+    { fixture: "v2286-agents-interrupt-manage-hint--w120", statusRows: 1, draft: null, stripped: 9 },
+    { fixture: "v2286-agents-interrupt-manage-hint-clipped--w62", statusRows: 1, draft: null, stripped: 9 },
     { fixture: "wizard-multiselect-checked", statusRows: 0, draft: null, stripped: 0 },
     { fixture: "wizard-multiselect-final", statusRows: 0, draft: null, stripped: 0 },
     { fixture: "wizard-multiselect-pointer-next", statusRows: 0, draft: null, stripped: 0 },

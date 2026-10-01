@@ -176,52 +176,60 @@ export function isMultiStepHeader(text: string): boolean {
   return m !== null && m.length >= 2;
 }
 
-// Claude Code 2.1.286 appends a background-work hint to the permission-mode line under the input box
-// while background agents run, and a narrow pane clips it:
+// Claude Code 2.1.286 puts two key hints of its own on the permission-mode line under the input box.
+// While background agents run the line ends with a background-work hint, and once the user sends a
+// message with them still running, the interrupt hint moves there from the spinner row too; the agents
+// segment then reads `← for agents`. A narrow pane clips the line with `…`:
 //   "⏵⏵ bypass permissions on (shift+tab to cycle) · ← 2 agents · ↓ to manage"
 //   "⏵⏵ bypass permissions on (shift+tab to cycle) · ← 2 agents · ↓ to ma…"
-// `↓` is a key `menuKeyFor` sends, so that last segment reads like a modal's "<key> to <verb>" hint,
-// and the two tail checks that ask `namesAMenuKey` of these rows (chrome.ts `tailNamesAMenu`, the
+//   "⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt · ← for agents · ↓ to manage"
+// `↓` and `esc` are keys `menuKeyFor` sends, so each hint reads like a modal's "<key> to <verb>", and
+// the two tail checks that ask `namesAMenuKey` of these rows (chrome.ts `tailNamesAMenu`, the
 // adapter's `modalOnScreen`) refused a live box and drew the unread-dialog card over a working pane.
 // The mode text is the shape of every mode line in the corpus: "⏵⏵ bypass permissions on (shift+tab
 // to cycle)", "⏵⏵ auto mode on (shift+tab to cycle)", "⏸ manual mode on".
 const MODE_LINE_HEAD = /^[⏵⏸]+\s+[a-z][a-z ]*\bon(?:\s+\(shift\+tab to cycle\))?$/i;
-const AGENT_COUNT = /^←\s+\d+\s+agents?$/;
+const INTERRUPT_HINT = "esc to interrupt";
 const MANAGE_HINT = "↓ to manage";
-// The shortest clip still told apart from any other "↓ to <verb>": the key and the "to".
-const MANAGE_HINT_MIN_CLIP = "↓ to";
 // Claude right-aligns a notice on the mode line's row after a run of padding ("Ctrl+Y to paste
 // deleted text"); the mode line itself is single-spaced, so its first run of two spaces ends it.
 const RIGHT_ALIGNED_GAP = /\s{2,}/;
 
-/** The background-work hint, whole or clipped by the terminal with a trailing `…`. */
-function isManageHint(segment: string): boolean {
-  if (segment === MANAGE_HINT) return true;
+/** `segment` is `hint` clipped by the terminal with a trailing `…`, no shorter than "<key> to": the
+ *  shortest clip still told apart from any other "<key> to <verb>". */
+function isClipOf(segment: string, hint: string): boolean {
   if (!segment.endsWith("…")) return false;
   const clip = segment.slice(0, -1).trimEnd();
-  return clip.length >= MANAGE_HINT_MIN_CLIP.length && MANAGE_HINT.startsWith(clip);
+  return clip.length >= hint.indexOf(" to ") + " to".length && hint.startsWith(clip);
+}
+
+/** One of the mode line's own hints: `esc to interrupt` wherever it sits, `↓ to manage` only last,
+ *  and either one clipped when it is the segment the terminal cut. */
+function isModeLineHint(segment: string, last: boolean): boolean {
+  if (segment === INTERRUPT_HINT) return true;
+  if (!last) return false;
+  return segment === MANAGE_HINT || isClipOf(segment, MANAGE_HINT) || isClipOf(segment, INTERRUPT_HINT);
 }
 
 /**
- * `text` without the trailing `· ↓ to manage` hint when `text` is the permission-mode line carrying
- * it; otherwise `text` unchanged. Narrow on purpose: the first segment must be the mode text, the one
- * before the hint `← <n> agent(s)`, and the hint must be last. A `↓ to manage` anywhere else, a dialog
- * footer's included, keeps its reading as a key, and so does every other segment of the mode line and
- * a notice right-aligned after it.
+ * `text` without the mode line's own key hints when `text` is the permission-mode line; otherwise
+ * `text` unchanged. Narrow on purpose: the first segment must be the mode text, and only the two hints
+ * Claude Code puts there go (`esc to interrupt` whole, a trailing `↓ to manage`, either clipped when
+ * last). The agents segment between them may read `← 2 agents`, `← for agents`, or be absent. A hint
+ * anywhere else, a dialog footer's `↓ to manage` or `Esc to cancel` included, keeps its reading as a
+ * key, and so does every other segment of the mode line and a notice right-aligned after it.
  */
-export function withoutAgentsManageHint(text: string): string {
+export function withoutModeLineHints(text: string): string {
   const body = text.trimStart();
   const indent = text.slice(0, text.length - body.length);
   const gap = RIGHT_ALIGNED_GAP.exec(body);
   const modeLine = gap === null ? body : body.slice(0, gap.index);
   const notice = gap === null ? "" : body.slice(gap.index);
   const segments = modeLine.split(SEGMENT_SPLIT);
-  if (segments.length < 3) return text;
-  if (!MODE_LINE_HEAD.test(segments[0]!)) return text;
-  if (!AGENT_COUNT.test(segments[segments.length - 2]!)) return text;
-  if (!isManageHint(segments[segments.length - 1]!)) return text;
-  // The hint holds no `·`, so the last one on the mode line is the separator in front of it.
-  return indent + modeLine.slice(0, modeLine.lastIndexOf("·")).trimEnd() + notice;
+  if (segments.length < 2 || !MODE_LINE_HEAD.test(segments[0]!)) return text;
+  const kept = segments.filter((s, i) => i === 0 || !isModeLineHint(s, i === segments.length - 1));
+  if (kept.length === segments.length) return text;
+  return indent + kept.join(" · ") + notice;
 }
 
 // The dialog families are part of the NEUTRAL prompt-select contract (harness/prompt-model.ts) —

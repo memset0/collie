@@ -666,7 +666,7 @@ it, and Claude answered `✔ Updated 1 marketplace`.
 agents run, the permission-mode line under the box gains a trailing hint, `· ← 2 agents · ↓ to
 manage`, and a narrow pane clips it to `↓ to ma…`. Every row is authored, nothing came off a real
 session, and the box rules span the recorded width (`--w<cols>`). `↓` is a key the menu grammar
-sends, so before `withoutAgentsManageHint` (`harness/claude/markers.ts`) the hint read as a modal's
+sends, so before `withoutModeLineHints` (`harness/claude/markers.ts`) the hint read as a modal's
 footer: the box was refused and the unread-dialog card covered a working pane. Replace them with
 captures when the lab next runs against 2.1.286 or later.
 
@@ -674,6 +674,17 @@ captures when the lab next runs against 2.1.286 or later.
 |---|---|---|
 | `claude--v2286-agents-manage-hint--w120.txt` | 120 | Empty `❯` box, a two-row run (a user statusline, then the mode line ending `· ← 2 agents · ↓ to manage`), the background-agents footer with two agents. Composer ready, no modal, no card |
 | `claude--v2286-agents-manage-hint-clipped--w73.txt` | 73 | The same screen at 73 columns with no user statusline: the mode line is clipped to `· ← 2 agents · ↓ to ma…`. Same reading |
+
+Once the user sends a message while the agents still run, the interrupt hint moves from the spinner
+row onto the mode line and the agents segment loses its count: `· esc to interrupt · ← for agents · ↓
+to manage`. That row names two keys, `esc` and `↓`, and both are the mode line's own, so
+`withoutModeLineHints` drops both; dropping either alone still left a key named. Same caveat: these two
+are reconstructed, not captured.
+
+| Fixture | Cols | State / what's in it |
+|---|---|---|
+| `claude--v2286-agents-interrupt-manage-hint--w120.txt` | 120 | The message just sent, a working spinner, an empty `❯` box, the mode line ending `· esc to interrupt · ← for agents · ↓ to manage`, the background-agents footer with two agents. Composer ready, no modal, no card |
+| `claude--v2286-agents-interrupt-manage-hint-clipped--w62.txt` | 62 | The same screen at 62 columns: the mode line is clipped inside the interrupt hint, `· esc to inte…`. Same reading |
 
 ## Wizard corpus (captured 2026-07-05, sandbox pane; choreography in `../../lib/grammar/WIZARD_NOTES.md`)
 

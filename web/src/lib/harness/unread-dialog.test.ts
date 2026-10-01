@@ -272,16 +272,21 @@ describe("the card appears on only these screens", () => {
   });
 });
 
-describe("Claude Code 2.1.286's background-work hint is the mode line, not a modal", () => {
+describe("Claude Code 2.1.286's mode-line hints are the mode line, not a modal", () => {
   // From 2.1.286 the mode line under the box ends `· ← N agents · ↓ to manage` while background agents
-  // run, and a narrow pane clips it to `↓ to ma…`. `↓` is a key the menu grammar sends, so before the
-  // mode line was read as such, both probes the card stands on took the hint for a modal's footer:
-  // the box was refused, and the card was drawn over a working pane.
+  // run, and a narrow pane clips it to `↓ to ma…`. Once a message is sent with them still running it
+  // reads `· esc to interrupt · ← for agents · ↓ to manage`. `↓` and `esc` are keys the menu grammar
+  // sends, so before the mode line was read as such, both probes the card stands on took either hint
+  // for a modal's footer: the box was refused, and the card was drawn over a working pane.
   const claude = adapterFor("claude")!;
 
   it.each([
     "claude--v2286-agents-manage-hint--w120.txt",
     "claude--v2286-agents-manage-hint-clipped--w73.txt",
+    // Both hints, `esc to interrupt` and `↓ to manage`, around `← for agents`; and clipped inside
+    // `esc to interrupt` at 62 columns.
+    "claude--v2286-agents-interrupt-manage-hint--w120.txt",
+    "claude--v2286-agents-interrupt-manage-hint-clipped--w62.txt",
     // The 2.1.285 mode line, `· ← 1 agent` with no hint: unchanged.
     "claude--draft-footer-single.txt",
   ])("%s: the composer is ready, no modal is reported, no card is drawn", (name) => {
@@ -289,6 +294,32 @@ describe("Claude Code 2.1.286's background-work hint is the mode line, not a mod
     expect(claude.composerReady!(lines)).toBe(true);
     expect(claude.modalOnScreen!(lines)).toBe(false);
     expect(pass("claude", lines).map((b) => b.kind)).toEqual(["raw"]);
+  });
+
+  const BOTH = "esc to interrupt · ← for agents · ↓ to manage";
+  it.each([
+    ["only the manage hint", "← for agents · ↓ to manage"],
+    ["only the interrupt hint", "esc to interrupt · ← for agents"],
+    ["only the interrupt hint, no agents segment", "esc to interrupt"],
+  ])("the mode line with %s: the composer is ready, no modal, no card", (_case, tail) => {
+    const text = readFileSync(join(PANES_DIR, "claude--v2286-agents-interrupt-manage-hint--w120.txt"), "utf8");
+    expect(text).toContain(BOTH);
+    const lines = linesOf(text.replace(BOTH, tail));
+    expect(claude.composerReady!(lines)).toBe(true);
+    expect(claude.modalOnScreen!(lines)).toBe(false);
+    expect(pass("claude", lines).map((b) => b.kind)).toEqual(["raw"]);
+  });
+
+  it("a real panel whose footer names both hints is still a modal, claimed as a menu", () => {
+    // Without the mode text in front of them the two hints are a footer's, as before: two sendable
+    // keys, so the menu grammar claims the panel and the card has nothing left to cover.
+    const text = readFileSync(join(PANES_DIR, "claude-lab--tasks-panel--w82.txt"), "utf8");
+    const footer = "↑/↓ to select · Enter to view · Esc to close";
+    expect(text).toContain(footer);
+    const lines = linesOf(text.replace(footer, "esc to interrupt · ↓ to manage"));
+    expect(claude.composerReady!(lines)).toBe(false);
+    expect(claude.modalOnScreen!(lines)).toBe(true);
+    expect(pass("claude", lines).map((b) => b.kind)).toContain("menu");
   });
 
   it("a real panel whose footer is only `↓ to manage` is still a modal, and gets the card", () => {

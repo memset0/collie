@@ -13,7 +13,7 @@ import {
   isMultiStepHeader,
   lineText,
   namesTrustDialog,
-  withoutAgentsManageHint,
+  withoutModeLineHints,
 } from "./markers";
 import { namesAMenuKey } from "../menu-hints";
 
@@ -286,19 +286,43 @@ describe("isMultiStepHeader", () => {
   });
 });
 
-describe("withoutAgentsManageHint", () => {
-  // Claude Code 2.1.286's mode line while background agents run. Only the trailing hint goes; the
-  // row is otherwise handed back exactly, so every other segment keeps its reading as a key.
+describe("withoutModeLineHints", () => {
+  // Claude Code 2.1.286's mode line while background agents run. Only its own hints go; the row is
+  // otherwise handed back, so every other segment keeps its reading as a key.
   const MODE = "  ⏵⏵ bypass permissions on (shift+tab to cycle)";
 
-  it("drops the hint after the mode text and the agent count", () => {
-    expect(withoutAgentsManageHint(`${MODE} · ← 2 agents · ↓ to manage`)).toBe(`${MODE} · ← 2 agents`);
-    expect(withoutAgentsManageHint(`${MODE} · ← 1 agent · ↓ to manage`)).toBe(`${MODE} · ← 1 agent`);
-    expect(namesAMenuKey(withoutAgentsManageHint(`${MODE} · ← 2 agents · ↓ to manage`))).toBe(false);
+  it("drops the trailing background-work hint", () => {
+    expect(withoutModeLineHints(`${MODE} · ← 2 agents · ↓ to manage`)).toBe(`${MODE} · ← 2 agents`);
+    expect(withoutModeLineHints(`${MODE} · ← 1 agent · ↓ to manage`)).toBe(`${MODE} · ← 1 agent`);
+    expect(namesAMenuKey(withoutModeLineHints(`${MODE} · ← 2 agents · ↓ to manage`))).toBe(false);
   });
 
   it.each(["↓ to ma…", "↓ to manag…", "↓ to…", "↓ to …", "↓ to manage…"])("drops the clipped hint %s", (clip) => {
-    expect(withoutAgentsManageHint(`${MODE} · ← 2 agents · ${clip}`)).toBe(`${MODE} · ← 2 agents`);
+    expect(withoutModeLineHints(`${MODE} · ← 2 agents · ${clip}`)).toBe(`${MODE} · ← 2 agents`);
+  });
+
+  it("drops both hints once a message is sent with the agents still running", () => {
+    // `esc to interrupt` moves onto the mode line from the spinner row, and the agents segment loses
+    // its count. Both segments name a key, and dropping either one alone still leaves a key named.
+    const row = `${MODE} · esc to interrupt · ← for agents · ↓ to manage`;
+    expect(namesAMenuKey(row)).toBe(true);
+    expect(withoutModeLineHints(row)).toBe(`${MODE} · ← for agents`);
+    expect(namesAMenuKey(withoutModeLineHints(row))).toBe(false);
+  });
+
+  it.each([
+    ["the interrupt hint alone", `${MODE} · esc to interrupt`, MODE],
+    ["the interrupt hint before an agent count", `${MODE} · esc to interrupt · ← 2 agents`, `${MODE} · ← 2 agents`],
+    ["the manage hint with no agents segment", `${MODE} · ↓ to manage`, MODE],
+    ["the manage hint after `← for agents`", `${MODE} · ← for agents · ↓ to manage`, `${MODE} · ← for agents`],
+    ["the manage hint clipped after the interrupt hint", `${MODE} · esc to interrupt · ← for agents · ↓ to ma…`, `${MODE} · ← for agents`],
+  ])("drops the hints with %s", (_case, row, kept) => {
+    expect(withoutModeLineHints(row)).toBe(kept);
+    expect(namesAMenuKey(withoutModeLineHints(row))).toBe(false);
+  });
+
+  it.each(["esc to inte…", "esc to interrup…", "esc to…", "esc to …"])("drops the interrupt hint clipped to %s", (clip) => {
+    expect(withoutModeLineHints(`${MODE} · ${clip}`)).toBe(MODE);
   });
 
   it.each([
@@ -307,31 +331,48 @@ describe("withoutAgentsManageHint", () => {
     "⏸ plan mode on (shift+tab to cycle)",
     "⏸ manual mode on",
   ])("follows the mode text %s", (mode) => {
-    expect(withoutAgentsManageHint(`  ${mode} · ← 3 agents · ↓ to manage`)).toBe(`  ${mode} · ← 3 agents`);
+    expect(withoutModeLineHints(`  ${mode} · ← 3 agents · ↓ to manage`)).toBe(`  ${mode} · ← 3 agents`);
+    expect(withoutModeLineHints(`  ${mode} · esc to interrupt · ← for agents · ↓ to manage`)).toBe(
+      `  ${mode} · ← for agents`,
+    );
   });
 
   it("keeps a notice Claude right-aligned on the same row after the hint", () => {
     const notice = "                    Ctrl+Y to paste deleted text";
-    expect(withoutAgentsManageHint(`${MODE} · ← 2 agents · ↓ to manage${notice}`)).toBe(`${MODE} · ← 2 agents${notice}`);
+    expect(withoutModeLineHints(`${MODE} · ← 2 agents · ↓ to manage${notice}`)).toBe(`${MODE} · ← 2 agents${notice}`);
+    expect(withoutModeLineHints(`${MODE} · esc to interrupt · ← for agents${notice}`)).toBe(
+      `${MODE} · ← for agents${notice}`,
+    );
   });
 
   it.each([
     ["no mode text before it", "  ← 2 agents · ↓ to manage"],
     ["the hint alone", "  ↓ to manage"],
+    ["the interrupt hint alone", "  esc to interrupt"],
     ["a dialog footer", "   ↑/↓ to select · Enter to view · ↓ to manage"],
+    ["a dialog's Esc to cancel", "   Enter to confirm · Esc to cancel"],
+    ["a dialog footer that names Esc to interrupt", "   Enter to select · ↑/↓ to move · Esc to interrupt"],
     ["another verb", `${MODE} · ← 2 agents · ↓ to view`],
+    ["the interrupt key capitalised", `${MODE} · Esc to interrupt · ← for agents`],
     ["a clip shorter than the key and its verb", `${MODE} · ← 2 agents · ↓ t…`],
-    ["no agent count before it", `${MODE} · ↓ to manage`],
-    ["a count that is not a number", `${MODE} · ← for agents · ↓ to manage`],
-    ["the hint not last", `${MODE} · ← 2 agents · ↓ to manage · Esc to cancel`],
+    ["an interrupt clip shorter than the key and its verb", `${MODE} · esc t…`],
+    ["an unclipped prefix of the hint", `${MODE} · ← 2 agents · ↓ to ma`],
+    ["the manage hint not last", `${MODE} · ← 2 agents · ↓ to manage · Esc to cancel`],
     ["the 2.1.285 mode line", `${MODE} · ← 1 agent`],
+    ["the mode line with `← for agents` and no hint", `${MODE} · ← for agents`],
   ])("hands the row back unchanged with %s", (_case, row) => {
-    expect(withoutAgentsManageHint(row)).toBe(row);
+    expect(withoutModeLineHints(row)).toBe(row);
   });
 
   it("leaves a key hint elsewhere on the mode line as a key", () => {
     const row = `${MODE} · Esc to cancel · ← 2 agents · ↓ to manage`;
-    expect(withoutAgentsManageHint(row)).toBe(`${MODE} · Esc to cancel · ← 2 agents`);
-    expect(namesAMenuKey(withoutAgentsManageHint(row))).toBe(true);
+    expect(withoutModeLineHints(row)).toBe(`${MODE} · Esc to cancel · ← 2 agents`);
+    expect(namesAMenuKey(withoutModeLineHints(row))).toBe(true);
+  });
+
+  it("drops the manage hint only when last, the interrupt hint wherever it sits", () => {
+    const row = `${MODE} · ↓ to manage · esc to interrupt · Esc to cancel`;
+    expect(withoutModeLineHints(row)).toBe(`${MODE} · ↓ to manage · Esc to cancel`);
+    expect(namesAMenuKey(withoutModeLineHints(row))).toBe(true);
   });
 });

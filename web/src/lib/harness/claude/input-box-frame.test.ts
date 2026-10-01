@@ -9,7 +9,7 @@ import { namesAMenuKey } from "../menu-hints";
 import { extractInputDraft, extractStatusLines, hasInputBox, inputBoxTail } from "./chrome";
 import { draftCarriesSend } from "../../reply-action";
 import { claudeAdapter, claudeBuildBlocks } from "./index";
-import { lineText, withoutAgentsManageHint } from "./markers";
+import { lineText, withoutModeLineHints } from "./markers";
 import { detectMarketplacesRegion } from "./marketplaces";
 import { detectMenuRegion } from "./menu";
 import { detectMultiSelectRegion } from "./multi-select";
@@ -95,6 +95,10 @@ describe("parity with the old walk on the real corpus", () => {
     // names a key, but it is the mode line's hint, not a modal's footer.
     "claude--v2286-agents-manage-hint--w120.txt",
     "claude--v2286-agents-manage-hint-clipped--w73.txt",
+    // The same mode line after a message is sent with the agents still running, `· esc to interrupt ·
+    // ← for agents · ↓ to manage` (and clipped to `esc to inte…`): two keys, both the mode line's own.
+    "claude--v2286-agents-interrupt-manage-hint--w120.txt",
+    "claude--v2286-agents-interrupt-manage-hint-clipped--w62.txt",
     "claude--working.txt",
   ]);
 
@@ -273,15 +277,16 @@ describe("a statusline-shaped tail still carries no menu", () => {
   });
 
   it("no statusline row in the Claude corpus names a menu key or a numbered option", () => {
-    // The one key a statusline row may name is the mode line's own `↓ to manage` hint (Claude Code
-    // 2.1.286), which the locator reads through `withoutAgentsManageHint`; every other segment counts.
+    // The only keys a statusline row may name are the mode line's own hints, `esc to interrupt` and
+    // `↓ to manage` (Claude Code 2.1.286), which the locator reads through `withoutModeLineHints`;
+    // every other segment counts.
     let rows = 0;
     for (const name of CLAUDE_FIXTURES) {
       const lines = load(name);
       if (inputBoxTail(lines) !== "statusline") continue;
       for (const row of extractStatusLines(lines).map(lineText)) {
         rows++;
-        expect(namesAMenuKey(withoutAgentsManageHint(row)), `${name}: ${row}`).toBe(false);
+        expect(namesAMenuKey(withoutModeLineHints(row)), `${name}: ${row}`).toBe(false);
         expect(/^\s*(?:❯\s*)?\d+\.\s+\S/.test(row), `${name}: ${row}`).toBe(false);
       }
     }
