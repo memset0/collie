@@ -213,6 +213,36 @@ The kept rows are byte-faithful to the reporter's file, theme colours included.
 |---|---|---|
 | `codex--v0158-goal-notice.txt` | `• Working (5m 47s • esc to interrupt)`, the empty composer, and a status row whose third field carries the padding in its own purple before a right-aligned `Pursuing goal (17h 43m)` (a Codex `/goal`). `  ? for shortcuts` is the last row. Collie 1.14.x refused that row, so the pane had no composer: the unread-dialog card and every send refused. `composerReady` must be TRUE, no card | `working` |
 
+## Codex many-field status line, headless (reconstructed 2026-10-01)
+
+**Not a capture.** These two files are RECONSTRUCTED from the status row of a live Codex pane this
+repo's capture hosts have not reproduced: an operator's own `tui.status_line` with nine fields, on a
+Codex started with no client attached (the renderer of *Codex 0.156.1 headless* above). The
+Codex version is not on the screen. Every row is authored, nothing came off a real session, and the
+fields hold neutral placeholders. The status row carries real ESC bytes in the shape that pane
+returned, and that row is the ground truth for these files and nothing else; the reply and prompt
+rows above it only give `locateComposer` its tail. Both are 128 columns wide. Replace them with
+captures when one is taken.
+
+The row differs from the two-field headless row in three ways, and each one alone left it refused:
+no composer, and the unread-dialog card over a live input box.
+
+- From the fourth field on, the space BEFORE each ` · ` is painted in the field's colour: the row
+  reads `/tmp/collie-codex-sandbox ` then `· `, so no segment is the separator.
+- The gap in front of the right-aligned notice comes back in the same unstyled segment as the
+  notice's `⚠ ` (`  ⚠ `), so no segment is the gap.
+- The notice's glue text (`⚠ `, `· `, `to view`) has no paint at all, where the client-attached
+  notice in `codex--v0156-draft-multiline.txt` carries the muted foreground.
+
+`splitPaintedGaps` (#317) reads none of the three: it splits a gap only off a PAINTED field that
+ends in two or more spaces. `isStatusRow` (`lib/harness/codex/markers.ts`) now also regroups the
+first two before it reads the row, and takes a plain notice on a row whose separators are plain.
+
+| Fixture | State / what's in it |
+|---|---|
+| `codex--headless-status-line-truncated.txt` | Empty dim `› Ask Codex to do anything` with no fill, over the nine-field row clipped to six, the last at `weekl…`, then two spaces and `⚠ 1 warning · f2 to view`. `composerReady` must be TRUE, the draft is null, and no unread-dialog card |
+| `codex--headless-status-line-short.txt` | The same screen with a five-field row that fits, `… · main · weekly 42% left`, and the notice pushed to the right edge by a longer gap. Same reading |
+
 ## Codex mobile chrome (reconstructed 2026-09-03)
 
 **Not a capture.** This one file is RECONSTRUCTED from the two rows reported in

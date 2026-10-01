@@ -42,6 +42,8 @@ const PINNED = [
   "codex--draft-wrapped.txt",
   "codex--draft.txt",
   "codex--fresh-idle.txt",
+  "codex--headless-status-line-short.txt",
+  "codex--headless-status-line-truncated.txt",
   "codex--queue-context-inline.txt",
   "codex--reporter-294-busy-agents-hint.txt",
   "codex--submitted-fill-labelled-rule.txt",
@@ -1267,6 +1269,87 @@ describe("the quiet-foreground separator paint (0.156.1)", () => {
     const left = `  ${FIELD}model${OFF}${sep(MUTED)}${FIELD2}/dir${OFF}        `;
     expect(accepts(`${left}${NOTICE} plain words`)).toBe(false);
     expect(accepts(`${left}${BG}${MUTED}⚠ 1 warning${OFF}`)).toBe(false);
+  });
+});
+
+// An operator's own `tui.status_line` with many fields, on a Codex started with no client attached
+// (#294's renderer). Both screens are RECONSTRUCTED (fixtures README, "Codex many-field
+// status line, headless"). From the fourth field on, the space before each ` · ` is painted in the
+// field's colour, and the gap in front of the notice comes back in one unstyled segment with its
+// `⚠ `; the notice's glue text has no paint at all. Each of the three left the row refused, and the
+// unread-dialog card over a live input box.
+describe("a many-field status line, headless", () => {
+  const SCREENS = [
+    [
+      "codex--headless-status-line-truncated.txt",
+      "  GPT-6-Luna medium · Full Access · Write a sheepdog story · /tmp/collie-codex-sandbox · main · weekl…  ⚠ 1 warning · f2 to view",
+    ],
+    [
+      "codex--headless-status-line-short.txt",
+      `  GPT-6-Luna medium · Full Access · /tmp/collie-codex-sandbox · main · weekly 42% left${" ".repeat(18)}⚠ 1 warning · f2 to view`,
+    ],
+  ] as const;
+
+  it.each(SCREENS)("%s: the composer is found, and no unread-dialog card is drawn", (name, row) => {
+    const lines = fixtureLines(name);
+    expect(codexAdapter.composerReady!(lines)).toBe(true);
+    const status = codexAdapter.extractStatusLines(lines);
+    expect(status).toHaveLength(1);
+    expect(lineText(status[0]!)).toBe(row);
+    expect(status[0]).toBe(lines[locateComposer(lines)!.statusRow]);
+    expect(codexAdapter.extractInputDraft(lines)).toBeNull();
+    expect(buildBlocks(lines, { agent: "codex" }).map((b) => b.kind)).toEqual(["raw"]);
+  });
+
+  it("a Codex dialog is still a dialog: the notes-focused ask keeps its card", () => {
+    const lines = fixtureLines("codex--ask-notes-focused.txt");
+    expect(codexAdapter.composerReady!(lines)).toBe(false);
+    expect(buildBlocks(lines, { agent: "codex" }).map((b) => b.kind)).toEqual(["unread-dialog"]);
+  });
+
+  const OFF = "\u001b[0m";
+  const FIELD = "\u001b[38;2;246;226;183m";
+  const FIELD2 = "\u001b[38;2;171;223;167m";
+  const MUTED = "\u001b[38;2;135;140;164m";
+  const BOLD = "\u001b[1m";
+  const BG = "\u001b[48;2;57;57;71m";
+  const PLAIN_NOTICE = `${OFF}${FIELD2}1 warning ${OFF}· ${BOLD}f2 ${OFF}to view`;
+
+  function accepts(raw: string): boolean {
+    const line = splitLines(parseAnsi(raw))[0]!;
+    return isStatusRow(lineText(line), line);
+  }
+
+  it("reads a field that carries the space before its separator as field, then ` · `", () => {
+    const glued = (paint: string) =>
+      `  ${FIELD}model${OFF}${paint} · ${OFF}${FIELD2}/dir ${OFF}${paint}· ${OFF}${FIELD}main${OFF}`;
+    expect(accepts(glued(""))).toBe(true);
+    expect(accepts(glued(MUTED))).toBe(true);
+    // The space belongs to a coloured field or to nothing: plain text carrying it is not a field.
+    expect(accepts(`  ${FIELD}model${OFF} · /dir · ${FIELD}main${OFF}`)).toBe(false);
+    // Still one paint for every separator, once the space has moved.
+    expect(accepts(`  ${FIELD}model${OFF}${MUTED} · ${OFF}${FIELD2}/dir ${OFF}· ${FIELD}main${OFF}`)).toBe(false);
+  });
+
+  it("splits a gap out of the segment it shares with the notice's first glyph", () => {
+    expect(accepts(`  ${FIELD}model${OFF} · ${FIELD2}/dir${OFF}  ⚠ ${PLAIN_NOTICE}`)).toBe(true);
+    // A single space is not a gap, and the gap still needs a whole status row to its left.
+    expect(accepts(`  ${FIELD}model${OFF} · ${FIELD2}/dir${OFF} ⚠ ${PLAIN_NOTICE}`)).toBe(false);
+    expect(accepts(`  ${FIELD}model${OFF}  ⚠ ${PLAIN_NOTICE}`)).toBe(false);
+  });
+
+  it("takes a plain notice only on a row whose separators are plain", () => {
+    expect(accepts(`  ${FIELD}model${OFF} · ${FIELD2}/dir${OFF}        ⚠ ${PLAIN_NOTICE}`)).toBe(true);
+    expect(accepts(`  ${FIELD}model${OFF}${MUTED} · ${OFF}${FIELD2}/dir${OFF}        ⚠ ${PLAIN_NOTICE}`)).toBe(false);
+    // On a plain row the notice still may not sit on a fill or hold a second gap.
+    expect(accepts(`  ${FIELD}model${OFF} · ${FIELD2}/dir${OFF}        ${BG}⚠ 1 warning${OFF}`)).toBe(false);
+    expect(accepts(`  ${FIELD}model${OFF} · ${FIELD2}/dir${OFF}        ⚠ ${PLAIN_NOTICE}${OFF}    more`)).toBe(false);
+  });
+
+  it("refuses the reconstructed row as plain text", () => {
+    const [, row] = SCREENS[0];
+    expect(accepts(row)).toBe(false);
+    expect(isStatusRow(row)).toBe(false);
   });
 });
 

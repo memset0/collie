@@ -69,8 +69,23 @@ export function rstrip(text: string): string {
 // at least two coloured fields, and the tail shape below. What the widening lets in is a transcript
 // row with coloured words and a plain ` · ` (an agent reply naming two bits of inline code); such a
 // row sits under its reply's column-0 `• ` row, and the tail walk refuses at that row
-// (codex.test.ts pins both halves). The right-aligned notice still wants every segment painted;
-// no headless capture shows one yet.
+// (codex.test.ts pins both halves). On such a row the right-aligned notice may be plain too, see
+// below.
+//
+// An operator's own `tui.status_line` with many fields paints the same row in two more ways, both
+// reported on a client-less Codex with nine fields configured (codex--headless-status-line-*.txt
+// reconstruct that row; nothing in them came off a real session). From the fourth field on, the
+// space BEFORE each ` · ` is painted in the field's colour, so the row reads `<field> ` then `· `
+// and no segment is the separator. And the notice's `⚠ ` carries no paint on this renderer, so
+// it comes back in one unstyled segment with the gap in front of it (`  ⚠ `, two spaces when the
+// left half overflowed and Codex clipped its last field with `…`), and no segment is the gap
+// either. Each way the row was refused: no composer, and the unread-dialog card over a live input
+// box. `splitPaintedGaps` (#317) reads neither, since it only cuts a painted field's run of two or
+// more trailing spaces. `regroupStatusSegments`, which runs after it, hands the acceptor those
+// segments the way every other renderer cuts them, a gap of its own and a whole ` · `, before
+// anything is classified. It splits a run of spaces off unstyled text, or moves one space from a
+// field to the separator after it, and nothing else; the row's text is compared before it runs, and
+// every field, separator and notice glyph is still judged on the paint Codex gave it.
 //
 // While the first turn of a thread runs, 0.156.1 ends the row with a spinner: one more ` · ` in the
 // row's separator paint, then ONE braille frame in a colour of its own (`  GPT-6-Luna low ·
@@ -246,15 +261,22 @@ function isSpinnerFrame(segment: AnsiSegment): boolean {
 // foreground or SGR 2, never plain text, which is what an echo or prose looks like), and no
 // background. It is only ever accepted after a gap AND a left half that is already a complete
 // status row on its own, so it adds no way in for a row that was refused without it.
+//
+// One exception to "every segment painted": a row whose separators are `plain`. That is the
+// client-less renderer (#294), and it paints the notice's glue text the way it paints the
+// separators, with no SGR at all (`⚠ `, `· `, `to view`; codex--headless-status-line-*.txt). The
+// row has already shown two coloured fields and one plain separator paint by then, so the notice
+// asks nothing of a plain row that the left half has not; it still may not carry a background,
+// hold a gap, or run long.
 const MAX_NOTICE_SEGMENTS = 12;
 
-function isRightNotice(segments: AnsiSegment[]): boolean {
+function isRightNotice(segments: AnsiSegment[], rowPaint: string | null): boolean {
   if (segments.length === 0 || segments.length > MAX_NOTICE_SEGMENTS) return false;
   if (segments[0]!.text.trimStart() !== segments[0]!.text) return false;
   let chars = 0;
   for (const segment of segments) {
     if (segment.bg !== undefined) return false;
-    if (segment.fg === undefined && segment.dim !== true) return false;
+    if (segment.fg === undefined && segment.dim !== true && rowPaint !== "plain") return false;
     if (isGapSegment(segment)) return false;
     chars += codePointCount(segment.text);
   }
@@ -274,6 +296,50 @@ function foldTrailingPadding(segments: AnsiSegment[]): AnsiSegment[] | null {
   return folded;
 }
 
+// An unstyled run of at least two spaces with more text glued after it: the gap and the notice's
+// first glyph in one segment.
+const GLUED_GAP = /^( {2,})(\S.*)$/u;
+/** A field that carries the one space in front of the next separator: ink, then exactly one space. */
+const FIELD_WITH_SEPARATOR_SPACE = /\S $/u;
+/** What is left of ` · ` once that space has gone to the field. */
+const SEPARATOR_WITHOUT_SPACE = STATUS_SEPARATOR.slice(1);
+
+/**
+ * The status row's segments cut the way the acceptor reads them (see the comment above STATUS_ROW).
+ * Two regroupings, and nothing else:
+ *
+ *   - an unstyled segment, never the first, that is a run of two or more spaces with text glued on,
+ *     is split into the gap and that text (`  ⚠ ` becomes `  ` and `⚠ `);
+ *   - a coloured segment that ends in ink and one space, followed by a segment that opens with
+ *     `· `, gives that space to the segment after it (`main ` and `· ` become `main` and ` · `).
+ *
+ * Only whitespace changes segment, the row's text stays whole, and no ink changes paint. A row whose
+ * segments already read the usual way comes back unchanged.
+ */
+function regroupStatusSegments(segments: AnsiSegment[]): AnsiSegment[] {
+  const out: AnsiSegment[] = [];
+  for (const [index, segment] of segments.entries()) {
+    const glued = index > 0 && isUnstyled(segment) ? GLUED_GAP.exec(segment.text) : null;
+    if (glued !== null) {
+      out.push({ ...segment, text: glued[1]! }, { ...segment, text: glued[2]! });
+      continue;
+    }
+    const previous = out.at(-1);
+    if (
+      previous !== undefined &&
+      previous.fg !== undefined &&
+      FIELD_WITH_SEPARATOR_SPACE.test(previous.text) &&
+      segment.text.startsWith(SEPARATOR_WITHOUT_SPACE)
+    ) {
+      out[out.length - 1] = { ...previous, text: previous.text.slice(0, -1) };
+      out.push({ ...segment, text: ` ${segment.text}` });
+      continue;
+    }
+    out.push(segment);
+  }
+  return out;
+}
+
 /**
  * The default status row, recognised by its PAINT. All of these must hold, or the row is refused:
  * the styled line must be the same row as `text`; the segments must read as an unstyled two-space
@@ -282,7 +348,7 @@ function foldTrailingPadding(segments: AnsiSegment[]): AnsiSegment[] | null {
  * with a separator and a spinner frame after two ordinary fields (a busy row, not a field);
  * every separator must carry ONE quiet paint, which no field may share; and the field count must
  * stay in bounds. Prose that happens to contain ` \u00b7 ` fails on the paint, which is the whole
- * point of the guard.
+ * point of the guard. The segments are read through `splitPaintedGaps`, then `regroupStatusSegments`.
  */
 function isStyledStatusRow(text: string, line: StyledLine): boolean {
   const rowText = rstrip(text);
@@ -292,7 +358,7 @@ function isStyledStatusRow(text: string, line: StyledLine): boolean {
 
   const folded = foldTrailingPadding(line.segments);
   if (folded === null) return false;
-  const segments = splitPaintedGaps(folded);
+  const segments = regroupStatusSegments(splitPaintedGaps(folded));
   if (!isIndentSegment(segments[0]!)) return false;
 
   let fields = 0;
@@ -311,7 +377,7 @@ function isStyledStatusRow(text: string, line: StyledLine): boolean {
 
     const next = segments[i]!;
     if (isGapSegment(next)) {
-      if (fields < MIN_STATUS_FIELDS || !isRightNotice(segments.slice(i + 1))) return false;
+      if (fields < MIN_STATUS_FIELDS || !isRightNotice(segments.slice(i + 1), paint)) return false;
       break;
     }
     const suffix = quietSuffixFieldPaint(next);

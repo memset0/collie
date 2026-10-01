@@ -314,6 +314,8 @@ const COMPOSERS: Composer[] = [
       "codex--v0157-draft-notice.txt",
       "codex--v0157-busy-streaming.txt",
       "codex--reporter-294-busy-agents-hint.txt",
+      "codex--headless-status-line-truncated.txt",
+      "codex--headless-status-line-short.txt",
     ],
     band(texts) {
       let status = texts.length - 1;
@@ -642,6 +644,8 @@ const CODEX_READ_BY_PAINT = [
   "codex--v0157-draft-notice.txt",
   "codex--v0157-busy-streaming.txt",
   "codex--reporter-294-busy-agents-hint.txt",
+  "codex--headless-status-line-truncated.txt",
+  "codex--headless-status-line-short.txt",
 ];
 
 /**
@@ -659,16 +663,6 @@ const KNOWN_PAINT_GAPS: { composer: string; paint: RepaintName; frames: string[]
     paint: "no paint at all",
     frames: CODEX_READ_BY_PAINT,
     why: "a status row with no paint is prose by design, no issue filed",
-  },
-  {
-    // The right-aligned notice (`⚠ 1 warning · f2 to view`) is accepted only when every one of its
-    // segments is painted (codex/markers.ts, isRightNotice), and its glue text carries the same muted
-    // colour the separators lose here. No headless capture shows a notice, so how Codex paints one
-    // with no client attached is not known yet; the notice rule was left as it is (#294).
-    composer: "codex",
-    paint: "no client attached",
-    frames: ["codex--v0156-draft-multiline.txt"],
-    why: "#294, a right-aligned notice with no colour, no capture yet",
   },
   {
     // The status-row acceptor refuses a bold field or a bold separator ON PURPOSE: every Codex
