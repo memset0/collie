@@ -204,7 +204,8 @@ export function forwardAuditAction(route: string): string | null {
   if (route.startsWith("tab/")) return route.endsWith("/close") ? "tab.close" : "tab.rename";
   const action = route.split("/")[2];
   if (isPaneRead(action)) return null; // reads, and a read is audited on neither side
-  if (action === "close" || action === "rename") return `pane.${action}`;
+  // close, rename and focus namespace themselves on the peer's own handler; the rest stay bare.
+  if (action === "close" || action === "rename" || action === "focus") return `pane.${action}`;
   return action; // reply | keys | upload
 }
 

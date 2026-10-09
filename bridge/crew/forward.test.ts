@@ -263,7 +263,7 @@ describe("which routes cross a link", () => {
     // must be attempted against a stale member rather than refused before it is tried (§10.3).
     expect(forwardKind("pane/w1:p1/chat")).toBe("read");
     expect(forwardKind("pane/w1:p1/changes")).toBe("read");
-    for (const action of ["reply", "keys", "upload", "close", "rename"]) {
+    for (const action of ["reply", "keys", "upload", "close", "rename", "focus"]) {
       expect(forwardKind(`pane/w1:p1/${action}`)).toBe("write");
     }
     expect(forwardKind("tab")).toBe("write");
@@ -284,6 +284,7 @@ describe("which routes cross a link", () => {
     expect(forwardAuditAction("pane/w1:p1/upload")).toBe("upload");
     expect(forwardAuditAction("pane/w1:p1/close")).toBe("pane.close");
     expect(forwardAuditAction("pane/w1:p1/rename")).toBe("pane.rename");
+    expect(forwardAuditAction("pane/w1:p1/focus")).toBe("pane.focus");
     expect(forwardAuditAction("tab")).toBe("tab.create");
     expect(forwardAuditAction("tab/w1:t1/rename")).toBe("tab.rename");
     expect(forwardAuditAction("tab/w1:t1/close")).toBe("tab.close");
