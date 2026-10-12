@@ -1,0 +1,5 @@
+[0m[2m• [0mThe story is in story.md: a sheepdog who herds the morning fog back down the valley.
+ 
+[0m[1m›[0m [0m[2mAsk Codex to do anything[0m
+ 
+  [0m[38;2;246;226;183mGPT-6-Luna medium[0m · [0m[38;2;200;169;238mFull Access[0m · [0m[38;2;171;223;167m/tmp/collie-codex-sandbox[0m · [0m[38;2;143;179;239mmain [0m· [0m[38;2;233;144;169mweekly 42% left[0m                  ⚠ [0m[38;2;196;167;103m1 warning [0m· [0m[1mf2 [0mto view[0m
