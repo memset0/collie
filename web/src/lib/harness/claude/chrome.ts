@@ -10,7 +10,7 @@
 // matched by POSITION (below the box's bottom border), never by its content strings.
 
 import type { StyledLine } from "../../blocks";
-import { namesAMenuKey, SEGMENT_SPLIT } from "../menu-hints";
+import { namesAMenuKey } from "../menu-hints";
 import { findAutocompleteRun, MAX_AUTOCOMPLETE_LINES } from "./autocomplete";
 import {
   classifyFooter,
@@ -501,6 +501,17 @@ const DOWN_TO_MANAGE = /^↓ to (?:manage|m(?:a(?:n(?:a(?:g)?)?)?)?…|…)$/i;
 // the rule classifyFooter applies to the plan family (ADR 0053).
 const DRAFT_EDIT_HINT = /^ctrl\+g to edit\b[^·]*$/i;
 
+// Where a Claude row splits into hints: the footer's ` · ` (SEGMENT_SPLIT in menu-hints.ts), or a
+// run of three or more spaces. Claude Code 2.1.296 right-aligns a notice on the mode line with only
+// spaces in front of it, so with background agents running the row reads `… · ← 2 agents · ↓ to
+// manage<spaces>✔ Update installed · Restart to update`
+// (`claude--v2296-manage-hint-update-notice--w141.txt`). Split on ` · ` alone, `↓ to manage` and the
+// notice were one segment the anchored hint patterns above could not match, so the row named `↓` as
+// a modal's key: no box, and the unread-dialog card over a live composer. The wider split is used
+// only to find the status hints; whatever is left is still read by `namesAMenuKey`, so a row whose
+// other hint is a modal's (`esc to interrupt<spaces>Enter to confirm`) still names that key.
+const HINT_ROW_SPLIT = /\s+·\s+|\s{3,}/;
+
 function isStatusHint(segment: string, draftEditHint: boolean): boolean {
   const t = segment.trim();
   return ESC_TO_INTERRUPT.test(t) || DOWN_TO_MANAGE.test(t) || (draftEditHint && DRAFT_EDIT_HINT.test(t));
@@ -518,7 +529,7 @@ function isStatusHint(segment: string, draftEditHint: boolean): boolean {
  */
 export function namesAModalKey(text: string, texts?: string[]): boolean {
   const draftEditHint = texts !== undefined && !namesPlanDialog(texts);
-  const segments = text.trim().split(SEGMENT_SPLIT);
+  const segments = text.trim().split(HINT_ROW_SPLIT);
   const kept = segments.filter((segment) => !isStatusHint(segment, draftEditHint));
   if (kept.length === segments.length) return namesAMenuKey(text);
   return kept.length > 0 && namesAMenuKey(kept.join(" · "));

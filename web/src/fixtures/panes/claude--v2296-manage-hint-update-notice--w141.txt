@@ -1,0 +1,14 @@
+[0m[38;2;153;153;153m  ⎿  [0mBackgrounded agent[0m[38;2;153;153;153m (↓ to manage · ctrl+o to expand)[0m
+
+[0m[38;2;255;255;255m●[0m Two read-only reviews are running in the background. I will report back once both of them finish.
+
+[0m[38;2;153;153;153m✻ Waiting for [0m[1m[38;2;153;153;153m2[0m[38;2;153;153;153m background agents to finish[0m
+
+[0m[38;2;136;136;136m─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
+❯ 
+[0m[38;2;136;136;136m─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
+  [0m[38;2;255;107;128m⏵⏵ bypass permissions on[0m[38;2;153;153;153m (shift+tab to cycle) · ← 2 agents · ↓ to manage[0m                           [0m[38;2;78;186;101m✔ Update installed · Restart to update[0m
+
+[0m[1m  ● main[0m
+[0m[38;2;153;153;153m  ◯ general-purpose[0m  [0m[38;2;153;153;153mReviewing the test suite[0m                                                                      [0m[38;2;153;153;153m7m 51s · ↓ 259.2k tokens[0m
+[0m[38;2;153;153;153m  ◯ general-purpose  Chasing the footer pointer[0m                                                                    [0m[38;2;153;153;153m5m 48s · ↓ 146.2k tokens[0m

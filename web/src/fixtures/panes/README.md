@@ -614,6 +614,17 @@ refused and `hasInputBox` answered false: no box, no draft chip, and a send from
 text and then never submitted (2026-10-08, four such sends in the operator's audit log). The ownership
 check now owns the statusline run AND the footer run `walkStatusline` peeled below it.
 
+| Fixture | State / what's in it |
+|---|---|
+| `claude--v2296-manage-hint-update-notice--w141.txt` | **Derived** from a live pane, Claude Code 2.1.296 (2026-10-12), 141 columns: the transcript above the box was replaced with a short synthetic reply (the `⎿ Backgrounded agent (↓ to manage · ctrl+o to expand)` row above it keeps its captured bytes), and the two agents' tasks were genericized width-preservingly; the box, the mode line and the agents footer keep their captured bytes. The mode line reads `⏵⏵ bypass permissions on (shift+tab to cycle) · ← 2 agents · ↓ to manage`, then 27 spaces, then the right-aligned `✔ Update installed · Restart to update`. `composerReady` must be TRUE, no modal, no unread-dialog card |
+
+With only spaces between `↓ to manage` and the update notice, `namesAModalKey` (split on ` · ` alone)
+read `↓ to manage<spaces>✔ Update installed` as one segment, which its anchored status-hint patterns
+did not match, so the row named `↓` as a modal's key: `locateInputBox` refused the box,
+`modalOnScreen` reported a modal, and `withUnreadDialog` drew "Collie cannot read this dialog" over a
+live composer, with an Esc button that would have interrupted the running turn. A run of three or
+more spaces now separates hints as well, for finding Claude's own status hints only.
+
 ## Generic-menu corpus (captured 2026-08-05, sandbox pane; decision in [`.adr/0009`](../../../../.adr/0009-a-generic-menu-is-driven-by-the-keys-it-names.md))
 
 Claude Code's `/model` picker — a full-screen modal that is **not** an AskUserQuestion dialog: no

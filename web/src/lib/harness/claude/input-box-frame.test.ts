@@ -81,6 +81,9 @@ describe("parity with the old walk on the real corpus", () => {
     // Claude Code 2.1.287 default footer: "esc to interrupt" mid-turn and "↓ to manage" with a
     // background task are the composer's own status hints, not a modal's keys.
     "claude--idle-background-shell.txt",
+    // Claude Code 2.1.296: the same "↓ to manage" hint with an update notice right-aligned after it on
+    // the mode line, split from it by spaces alone.
+    "claude--v2296-manage-hint-update-notice--w141.txt",
     "claude--menu-model-picker-dismissed.txt",
     "claude--model-alias.txt",
     "claude--rename-resolved.txt",

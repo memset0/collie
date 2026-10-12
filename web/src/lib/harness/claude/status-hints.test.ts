@@ -22,13 +22,18 @@ describe("Claude status hints in the footer", () => {
   it.each([
     ["claude--working-esc-to-interrupt.txt", "a turn is running"],
     ["claude--idle-background-shell.txt", "a background shell is running"],
+    ["claude--v2296-manage-hint-update-notice--w141.txt", "background agents run beside an update notice"],
   ])("%s keeps its input box (%s)", (fixture) => {
     const lines = read(fixture);
     expect(hasInputBox(lines)).toBe(true);
     expect(inputBoxTail(lines)).toBe("statusline");
   });
 
-  it.each(["claude--working-esc-to-interrupt.txt", "claude--idle-background-shell.txt"])(
+  it.each([
+    "claude--working-esc-to-interrupt.txt",
+    "claude--idle-background-shell.txt",
+    "claude--v2296-manage-hint-update-notice--w141.txt",
+  ])(
     "%s draws no unread-dialog card",
     (fixture) => {
       const lines = read(fixture);
@@ -51,6 +56,10 @@ describe("namesAModalKey", () => {
     "⏵⏵ bypass permissions on · esc to inter…",
     "⏵⏵ bypass permissions on · esc to…",
     "⏵⏵ bypass permissions on · ↓ to man…",
+    // Claude Code 2.1.296 right-aligns a notice on the same row, after spaces alone.
+    "⏵⏵ bypass permissions on (shift+tab to cycle) · ← 2 agents · ↓ to manage" +
+      `${" ".repeat(27)}✔ Update installed · Restart to update`,
+    "⏵⏵ bypass permissions on · esc to interrupt   ✔ Update installed",
   ])("does not take %j for a modal footer", (row) => {
     expect(namesAModalKey(row)).toBe(false);
   });
@@ -65,6 +74,13 @@ describe("namesAModalKey", () => {
     // Only the closed list is exempt, not the verb "interrupt" for any key.
     "ctrl+c to interrupt",
     "esc to interrupt the dialog",
+    // A run of spaces separates hints too, so a modal key beside a status hint still names a modal,
+    // and so does a modal key with a right-aligned notice after it.
+    "esc to interrupt     Enter to confirm",
+    "↓ to manage   Esc to cancel",
+    "Esc to cancel     ✔ Update installed",
+    // Two spaces are not a separator: the hint is not on its own, so the row is read whole.
+    "↓ to manage  ✔ Update installed",
   ])("still takes %j for a modal footer", (row) => {
     expect(namesAModalKey(row)).toBe(true);
   });
