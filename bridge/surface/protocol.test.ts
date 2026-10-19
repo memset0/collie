@@ -15,7 +15,7 @@ import { parseAnsi } from "../../web/src/lib/ansi.ts";
 import { splitLines } from "../../web/src/lib/blocks.ts";
 import { findInputFrame } from "../../web/src/lib/surface/frame.ts";
 import { KeyGate } from "./key-gate.ts";
-import { boxMatches, commandBoxMatches, GENERIC_PROBE, LOCK_BOUND_MS, locateText, neverHeldEntry, probeLanding, RowRing, SendProtocol, SessionLocks, steadyRow, type SendDeps, type SendRequest } from "./protocol.ts";
+import { BOUNDS, boxMatches, commandBoxMatches, GENERIC_PROBE, LOCK_BOUND_MS, locateText, neverHeldEntry, probeLanding, RowRing, SendProtocol, SessionLocks, steadyRow, type SendDeps, type SendRequest } from "./protocol.ts";
 import { RequestStore } from "./requests.ts";
 import { SurfaceLedger } from "./counters.ts";
 import { HoldStore } from "./holds.ts";
@@ -913,6 +913,113 @@ describe("after a failed probe", () => {
     expect(answer.detail).toContain("may remain in the box");
     expect(pane.keysSeen).toEqual([]);
     expect(pane.box).toBe(PROBE);
+  });
+
+  /** A pane that draws nothing while the probe step can read (its reads bound), then runs `late` on the read after. */
+  function lateAfterProbe(r: Rig, late: (pane: FakePane) => void): void {
+    let readsSince: number | null = null;
+    r.pane.swallow = true;
+    r.pane.afterInput = (_p, what) => {
+      if (what === `type:${PROBE}`) readsSince = 0;
+    };
+    r.pane.beforeRead = (p) => {
+      if (readsSince === null || !p.swallow) return;
+      readsSince++;
+      if (readsSince < BOUNDS.probe.reads) return;
+      p.swallow = false;
+      late(p);
+    };
+  }
+
+  test("a probe character that lands after the probe gave up gets one Backspace, and the box is clean again", async () => {
+    const r = rig({ version: "2.1.999" });
+    lateAfterProbe(r, (p) => {
+      p.box = PROBE;
+    });
+    const answer = await r.send("hello there");
+    expect(answer.receipt).toMatchObject({ outcome: "refused", reason: "probe_failed", keys: ["probe", "Backspace"] });
+    expect(answer.detail).toBe("The probe character did not show in the box. It showed late, and one Backspace removed it, so the box is clean again.");
+    expect(r.pane.box).toBe("");
+    expect(r.pane.keysSeen).toEqual(["Backspace"]);
+    expect(r.pane.calls).toEqual([`type:${PROBE}`]);
+    // The next send finds an empty box, not a draft.
+    r.pane.beforeRead = null;
+    r.pane.afterInput = null;
+    expect((await r.send("hello there")).receipt?.outcome).toBe("sent");
+    neverEscape(r.pane);
+  });
+
+  test("a late probe character after an Add to it's draft is removed and the draft stays", async () => {
+    const r = rig({ version: "2.1.999" });
+    r.pane.box = "the start";
+    lateAfterProbe(r, (p) => {
+      p.box = `the start${PROBE}`;
+    });
+    const answer = await r.send(" and more", { mode: "append" });
+    expect(answer.receipt).toMatchObject({ outcome: "refused", reason: "probe_failed", keys: ["probe", "Backspace"] });
+    expect(r.pane.box).toBe("the start");
+  });
+
+  test("something other than the probe character landing late gets no key", async () => {
+    const r = rig({ version: "2.1.999" });
+    lateAfterProbe(r, (p) => {
+      p.box = `x${PROBE}`;
+    });
+    const answer = await r.send("hello there");
+    expect(answer.receipt).toMatchObject({ outcome: "refused", reason: "probe_failed", keys: ["probe"] });
+    expect(answer.detail).toContain("may remain in the box");
+    expect(r.pane.keysSeen).toEqual([]);
+    expect(r.pane.box).toBe(`x${PROBE}`);
+  });
+
+  test("a late probe character with a dialog over the box gets no key", async () => {
+    const r = rig({ version: "2.1.999" });
+    lateAfterProbe(r, (p) => {
+      p.box = PROBE;
+      p.over = DIALOG;
+    });
+    const answer = await r.send("hello there");
+    expect(answer.receipt).toMatchObject({ outcome: "refused", reason: "probe_failed", keys: ["probe"] });
+    expect(r.pane.keysSeen).toEqual([]);
+  });
+});
+
+describe("a box holding only the probe character", () => {
+  test("is Collie's own debris: one Backspace clears it and the send goes out with its own text", async () => {
+    const { pane, send } = rig();
+    pane.box = PROBE;
+    const answer = await send("please fix the failing test in the parser");
+    expect(answer.receipt).toMatchObject({ outcome: "sent", keys: ["Backspace", "Enter"] });
+    expect(pane.transcript.at(-1)).toBe("> please fix the failing test in the parser");
+    expect(pane.calls).toEqual(["paste:please fix the failing test in the parser"]);
+    neverEscape(pane);
+  });
+
+  test("Add to it on debris alone sends the text without the probe character", async () => {
+    const { pane, send } = rig();
+    pane.box = PROBE;
+    const answer = await send("more words for the agent", { mode: "append" });
+    expect(answer.receipt?.outcome).toBe("sent");
+    expect(pane.transcript.at(-1)).toBe("> more words for the agent");
+  });
+
+  test("a draft beside a probe character is still the person's draft: refused draft_present, no key", async () => {
+    const { pane, send } = rig();
+    pane.box = `my draft ${PROBE}`;
+    const answer = await send("hello there, agent");
+    expect(answer.receipt).toMatchObject({ outcome: "refused", reason: "draft_present", keys: [] });
+    expect(pane.keysSeen).toEqual([]);
+    expect(pane.box).toBe(`my draft ${PROBE}`);
+  });
+
+  test("debris that a Backspace does not take is refused probe_failed with no other key", async () => {
+    const { pane, send } = rig();
+    pane.box = PROBE;
+    pane.backspaceRestores = false;
+    const answer = await send("hello there, agent");
+    expect(answer.receipt).toMatchObject({ outcome: "refused", reason: "probe_failed", keys: ["Backspace"] });
+    expect(pane.keysSeen).toEqual(["Backspace"]);
+    expect(pane.calls).toEqual([]);
   });
 });
 
@@ -2329,7 +2436,7 @@ describe("the probe", () => {
     expect(pane.calls).toEqual([`type:${PROBE}`]);
   });
 
-  test("the probe takes at most three reads", async () => {
+  test("the probe takes at most its own reads, and the late watch after it at most as many again", async () => {
     const { pane, send } = rig({ version: "2.1.999" });
     let probeReads = 0;
     pane.beforeRead = (p) => {
@@ -2337,7 +2444,7 @@ describe("the probe", () => {
     };
     pane.swallow = true;
     await send("hello there");
-    expect(probeReads).toBeLessThanOrEqual(3);
+    expect(probeReads).toBeLessThanOrEqual(2 * BOUNDS.probe.reads);
   });
 });
 
